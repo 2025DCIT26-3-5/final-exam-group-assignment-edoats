@@ -4,13 +4,14 @@ import { Text, useTheme, Card } from "react-native-paper";
 import { useScheduleStore, CourseBlock } from "../store/useScheduleStore";
 import { useUserStore } from "../store/useUserStore";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const HOURS = Array.from({ length: 14 }, (_, i) => i + 7); // 7 AM to 8 PM
+const HOURS = Array.from({ length: 12 }, (_, i) => i + 7); // 7 AM to 6 PM
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const FULL_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const ROW_HEIGHT = 60;
-const COL_WIDTH = 100;
-const TIME_COL_WIDTH = 60;
+const ROW_HEIGHT = 70;
+const COL_WIDTH = 90;
+const TIME_COL_WIDTH = 50;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ScheduleBlock = React.memo(({ block, style }: { block: CourseBlock, style: any }) => {
@@ -19,20 +20,48 @@ const ScheduleBlock = React.memo(({ block, style }: { block: CourseBlock, style:
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 500,
+      duration: 400,
       useNativeDriver: true,
     }).start();
   }, [fadeAnim]);
 
+  // Create a semi-transparent version of the block color
+  const hexToRgba = (hex: string, alpha: number) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
   return (
     <Animated.View style={[style, { opacity: fadeAnim }]}>
-      <TouchableOpacity style={{ flex: 1 }}>
-        <Text numberOfLines={1} variant="labelSmall" style={{ color: "#FFF", fontWeight: "bold" }}>
+      <TouchableOpacity
+        style={[
+          styles.blockContainer,
+          {
+            backgroundColor: hexToRgba(block.color, 0.25),
+            borderLeftColor: block.color,
+          }
+        ]}
+        activeOpacity={0.7}
+      >
+        <Text
+          numberOfLines={1}
+          style={styles.blockCode}
+        >
           {block.code}
         </Text>
-        <Text numberOfLines={1} variant="labelSmall" style={{ color: "rgba(255,255,255,0.8)", fontSize: 8 }}>
-          {block.name}
+        <Text
+          numberOfLines={1}
+          style={styles.blockName}
+        >
+          {block.instructor || block.name}
         </Text>
+        {block.note && (
+          <Text numberOfLines={1} style={styles.blockNote}>
+            {block.note}
+          </Text>
+        )}
       </TouchableOpacity>
     </Animated.View>
   );
@@ -46,7 +75,7 @@ function UpNextWidget({ blocks }: { blocks: CourseBlock[] }) {
   const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 60000); // Update every minute
+    const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
@@ -127,6 +156,7 @@ function UpNextWidget({ blocks }: { blocks: CourseBlock[] }) {
 
 export function DashboardScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const { blocks } = useScheduleStore();
   const { name } = useUserStore();
   const headerFadeAnim = useRef(new Animated.Value(0)).current;
@@ -157,27 +187,22 @@ export function DashboardScreen() {
     const durationHours = (endHour + endMin / 60) - (startHour + startMin / 60);
     const height = durationHours * ROW_HEIGHT;
 
-    // Map day string to index
     const dayIndex = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].indexOf(block.day);
 
-    // If day not found (e.g. Sunday), hide it or put it somewhere else
     if (dayIndex === -1) return null;
 
     return {
       position: "absolute" as const,
-      top: startOffset,
-      left: TIME_COL_WIDTH + (dayIndex * COL_WIDTH),
-      width: COL_WIDTH - 4, // Gutter
-      height: height - 2, // Gutter
-      backgroundColor: block.color,
-      borderRadius: 4,
-      padding: 4,
+      top: startOffset + 1,
+      left: dayIndex * COL_WIDTH + 2,
+      width: COL_WIDTH - 4,
+      height: height - 2,
       zIndex: 10,
     };
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
       <Animated.View style={[styles.header, { opacity: headerFadeAnim, transform: [{ translateY: headerSlideAnim }] }]}>
         <Text variant="headlineSmall" style={{ fontFamily: "serif", color: theme.colors.primary }}>
           {name}&apos;s Schedule
@@ -189,97 +214,175 @@ export function DashboardScreen() {
 
       <UpNextWidget blocks={blocks} />
 
-      <ScrollView stickyHeaderIndices={[0]} horizontal>
-        <View>
-          {/* Header Row (Days) */}
-          <View style={[styles.row, { backgroundColor: theme.colors.surface }]}>
-            <View style={{ width: TIME_COL_WIDTH, height: 40, borderRightWidth: 1, borderColor: theme.colors.outline }} />
-            {DAYS.map((day) => (
-              <View key={day} style={[styles.headerCell, { borderColor: theme.colors.outline }]}>
-                <Text variant="labelMedium" style={{ fontWeight: "bold" }}>{day}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Time Grid */}
-          <ScrollView contentContainerStyle={{ paddingBottom: 50 }}>
-            <View style={{ flexDirection: "row" }}>
-              {/* Time Column */}
-              <View style={{ width: TIME_COL_WIDTH }}>
-                {HOURS.map((hour) => (
-                  <View key={hour} style={[styles.timeCell, { height: ROW_HEIGHT, borderColor: theme.colors.outline }]}>
-                    <Text variant="labelSmall">{hour}:00</Text>
-                  </View>
-                ))}
-              </View>
-
-              {/* Grid Content */}
-              <View style={{ width: DAYS.length * COL_WIDTH, height: HOURS.length * ROW_HEIGHT }}>
-                {/* Horizontal Grid Lines */}
-                {HOURS.map((h, i) => (
-                  <View key={`line-${h}`} style={{
-                    position: 'absolute',
-                    top: i * ROW_HEIGHT,
-                    width: '100%',
-                    height: 1,
-                    backgroundColor: theme.colors.outline,
-                    opacity: 0.2
-                  }} />
-                ))}
-
-                {/* Vertical Grid Lines */}
-                {DAYS.map((d, i) => (
-                  <View key={`vline-${d}`} style={{
-                    position: 'absolute',
-                    left: i * COL_WIDTH,
-                    height: '100%',
-                    width: 1,
-                    backgroundColor: theme.colors.outline,
-                    opacity: 0.2
-                  }} />
-                ))}
-
-                {/* Blocks */}
-                {blocks.map((block) => {
-                  const style = getBlockStyle(block);
-                  if (!style) return null;
-                  return (
-                    <ScheduleBlock key={block.id} block={block} style={style} />
-                  );
-                })}
-              </View>
+      <View style={styles.scheduleContainer}>
+        {/* Horizontally and Vertically Scrollable Grid */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View>
+            {/* Days Header */}
+            <View style={styles.daysHeader}>
+              <View style={{ width: TIME_COL_WIDTH }} />
+              {DAYS.map((day) => (
+                <View key={day} style={styles.dayHeaderCell}>
+                  <Text style={[styles.dayHeaderText, { color: theme.colors.onSurfaceVariant }]}>{day}</Text>
+                </View>
+              ))}
             </View>
-          </ScrollView>
-        </View>
-      </ScrollView>
+
+            {/* Vertically Scrollable Grid */}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 20 }}
+            >
+              <View style={styles.gridContainer}>
+                {/* Time Column */}
+                <View style={styles.timeColumn}>
+                  {HOURS.map((hour) => (
+                    <View key={hour} style={styles.timeCell}>
+                      <Text style={[styles.timeText, { color: theme.colors.onSurfaceVariant }]}>
+                        {hour > 12 ? `${hour - 12}PM` : hour === 12 ? '12PM' : `${hour}AM`}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Grid with Blocks */}
+                <View style={styles.gridContent}>
+                  {/* Horizontal Grid Lines */}
+                  {HOURS.map((h, i) => (
+                    <View
+                      key={`hline-${h}`}
+                      style={[
+                        styles.horizontalLine,
+                        {
+                          top: i * ROW_HEIGHT,
+                          backgroundColor: theme.colors.outline,
+                        }
+                      ]}
+                    />
+                  ))}
+
+                  {/* Vertical Grid Lines */}
+                  {DAYS.map((d, i) => (
+                    <View
+                      key={`vline-${d}`}
+                      style={[
+                        styles.verticalLine,
+                        {
+                          left: i * COL_WIDTH,
+                          backgroundColor: theme.colors.outline,
+                        }
+                      ]}
+                    />
+                  ))}
+
+                  {/* Course Blocks */}
+                  {blocks.map((block) => {
+                    const style = getBlockStyle(block);
+                    if (!style) return null;
+                    return (
+                      <ScheduleBlock key={block.id} block={block} style={style} />
+                    );
+                  })}
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </ScrollView>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: { padding: 16, borderBottomWidth: 1, borderBottomColor: "#333" },
-  row: { flexDirection: "row" },
-  headerCell: {
-    width: COL_WIDTH,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
+  container: {
+    flex: 1,
   },
-  timeCell: {
-    justifyContent: "flex-start",
-    alignItems: "center",
-    paddingTop: 4,
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
+  header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   widgetContainer: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 12,
   },
   widgetCard: {
     borderRadius: 8,
-  }
+  },
+  scheduleContainer: {
+    flex: 1,
+  },
+  daysHeader: {
+    flexDirection: 'row',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  dayHeaderCell: {
+    width: COL_WIDTH,
+    alignItems: 'center',
+  },
+  dayHeaderText: {
+    fontSize: 14,
+    fontWeight: '500',
+    opacity: 0.7,
+  },
+  gridContainer: {
+    flexDirection: 'row',
+  },
+  timeColumn: {
+    width: TIME_COL_WIDTH,
+  },
+  timeCell: {
+    height: ROW_HEIGHT,
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingRight: 8,
+    paddingTop: 2,
+  },
+  timeText: {
+    fontSize: 11,
+    fontWeight: '500',
+    opacity: 0.6,
+  },
+  gridContent: {
+    width: DAYS.length * COL_WIDTH,
+    height: HOURS.length * ROW_HEIGHT,
+  },
+  horizontalLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 1,
+    opacity: 0.15,
+  },
+  verticalLine: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 1,
+    opacity: 0.15,
+  },
+  blockContainer: {
+    flex: 1,
+    borderLeftWidth: 3,
+    borderRadius: 4,
+    padding: 6,
+    overflow: 'hidden',
+  },
+  blockCode: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  blockName: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 10,
+  },
+  blockNote: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 9,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
 });

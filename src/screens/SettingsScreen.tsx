@@ -5,16 +5,18 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system";
 import * as DocumentPicker from "expo-document-picker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeStore } from "../store/useThemeStore";
 import { useUserStore } from "../store/useUserStore";
 import { useScheduleStore } from "../store/useScheduleStore";
 
 export function SettingsScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const { isDarkMode, toggleTheme } = useThemeStore();
   const { name, setName } = useUserStore();
   const { blocks, importSchedule } = useScheduleStore();
-  
+
   const [nameDialogVisible, setNameDialogVisible] = useState(false);
   const [newName, setNewName] = useState(name);
 
@@ -75,8 +77,8 @@ export function SettingsScreen() {
                 <th>Time</th>
               </tr>
               ${blocks
-                .map(
-                  (b) => `
+          .map(
+            (b) => `
                 <tr>
                   <td>${b.code}</td>
                   <td>${b.name}</td>
@@ -84,8 +86,8 @@ export function SettingsScreen() {
                   <td>${b.startTime} - ${b.endTime}</td>
                 </tr>
               `
-                )
-                .join("")}
+          )
+          .join("")}
             </table>
           </body>
         </html>
@@ -104,16 +106,16 @@ export function SettingsScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
       <Text variant="headlineMedium" style={[styles.header, { fontFamily: 'serif', color: theme.colors.primary }]}>Settings</Text>
-      
+
       <List.Section>
         <List.Subheader>Profile</List.Subheader>
         <List.Item
-            title="Display Name"
-            description={name}
-            left={() => <List.Icon icon="account" />}
-            onPress={() => setNameDialogVisible(true)}
+          title="Display Name"
+          description={name}
+          left={() => <List.Icon icon="account" />}
+          onPress={() => setNameDialogVisible(true)}
         />
         <Divider />
 
@@ -124,7 +126,7 @@ export function SettingsScreen() {
           right={() => <Switch value={isDarkMode} onValueChange={toggleTheme} />}
         />
         <Divider />
-        
+
         <List.Subheader>Data</List.Subheader>
         <List.Item
           title="Export as PDF"
@@ -133,34 +135,34 @@ export function SettingsScreen() {
           onPress={handleExportPDF}
         />
         <List.Item
-            title="Export JSON"
-            description="Share your schedule file"
-            left={() => <List.Icon icon="code-json" />}
-            onPress={handleExportJSON}
+          title="Export JSON"
+          description="Share your schedule file"
+          left={() => <List.Icon icon="code-json" />}
+          onPress={handleExportJSON}
         />
         <List.Item
-            title="Import JSON"
-            description="Load a schedule from a file"
-            left={() => <List.Icon icon="file-import" />}
-            onPress={handleImportJSON}
+          title="Import JSON"
+          description="Load a schedule from a file"
+          left={() => <List.Icon icon="file-import" />}
+          onPress={handleImportJSON}
         />
       </List.Section>
 
       <Portal>
         <Dialog visible={nameDialogVisible} onDismiss={() => setNameDialogVisible(false)}>
-            <Dialog.Title>Edit Name</Dialog.Title>
-            <Dialog.Content>
-                <TextInput 
-                    label="Name" 
-                    value={newName} 
-                    onChangeText={setNewName} 
-                    mode="outlined"
-                />
-            </Dialog.Content>
-            <Dialog.Actions>
-                <Button onPress={() => setNameDialogVisible(false)}>Cancel</Button>
-                <Button onPress={saveName}>Save</Button>
-            </Dialog.Actions>
+          <Dialog.Title>Edit Name</Dialog.Title>
+          <Dialog.Content>
+            <TextInput
+              label="Name"
+              value={newName}
+              onChangeText={setNewName}
+              mode="outlined"
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setNameDialogVisible(false)}>Cancel</Button>
+            <Button onPress={saveName}>Save</Button>
+          </Dialog.Actions>
         </Dialog>
       </Portal>
     </View>

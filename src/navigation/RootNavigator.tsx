@@ -30,17 +30,16 @@ function AppTabs() {
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
           borderTopColor: theme.colors.outline,
-          height: 60 + insets.bottom,
-          paddingBottom: 8 + insets.bottom,
-          paddingTop: 8,
+          height: 56 + insets.bottom,
+          paddingBottom: insets.bottom,
         },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.secondary,
         tabBarIcon: ({ color, size, focused }) => {
-          let iconName: keyof typeof MaterialCommunityIcons.glyphMap = "view-dashboard";
+          let iconName: keyof typeof MaterialCommunityIcons.glyphMap = "calendar";
 
-          if (route.name === "Dashboard") {
-            iconName = focused ? "view-dashboard" : "view-dashboard-outline";
+          if (route.name === "Schedule") {
+            iconName = focused ? "calendar" : "calendar-outline";
           } else if (route.name === "Courses") {
             iconName = focused ? "book-open-variant" : "book-open-variant";
           } else if (route.name === "Settings") {
@@ -57,7 +56,7 @@ function AppTabs() {
       })}
     >
       <Tab.Screen
-        name="Dashboard"
+        name="Schedule"
         component={DashboardScreen}
         listeners={{
           tabPress: () => Haptics.selectionAsync(),

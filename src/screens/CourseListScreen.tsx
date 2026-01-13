@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { View, StyleSheet, FlatList, Animated } from "react-native";
 import { Text, Card, FAB, Dialog, Portal, TextInput, Button, useTheme, List } from "react-native-paper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useScheduleStore, CourseBlock } from "../store/useScheduleStore";
 import { schedulePushNotification } from "../utils/notifications";
 import * as Haptics from "expo-haptics";
@@ -63,6 +64,7 @@ CourseCard.displayName = "CourseCard";
 
 export function CourseListScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const { blocks, addBlock, deleteBlock } = useScheduleStore();
   const [visible, setVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -110,7 +112,7 @@ export function CourseListScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Text variant="headlineMedium" style={{ color: theme.colors.primary, fontFamily: 'serif', marginBottom: 16 }}>My Courses</Text>
         <TextInput
