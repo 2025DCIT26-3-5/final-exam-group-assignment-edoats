@@ -110,7 +110,7 @@ function CatalogCourseItem({ course, onSelect, theme }: { course: CatalogCourse,
 }
 
 // Time Picker Component
-function TimePicker({ label, value, onChange, theme }: { label: string, value: string, onChange: (time: string) => void, theme: any }) {
+function TimePicker({ label, value, onChange, theme, use24HourFormat }: { label: string, value: string, onChange: (time: string) => void, theme: any, use24HourFormat: boolean }) {
   const [hour, minute] = value.split(":").map(Number);
 
   const formatTime = (h: number, m: number) => {
@@ -133,13 +133,17 @@ function TimePicker({ label, value, onChange, theme }: { label: string, value: s
     Haptics.selectionAsync();
   };
 
+  // Display hour based on format
+  const displayHour = use24HourFormat ? hour : (hour % 12 || 12);
+  const ampm = hour >= 12 ? "PM" : "AM";
+
   return (
     <View style={styles.timePickerContainer}>
       <Text variant="labelMedium" style={{ color: theme.colors.secondary, marginBottom: 8 }}>{label}</Text>
       <View style={styles.timePicker}>
         <View style={styles.timeUnit}>
           <IconButton icon="chevron-up" size={20} onPress={() => adjustHour(1)} />
-          <Text variant="headlineMedium" style={styles.timeValue}>{hour.toString().padStart(2, "0")}</Text>
+          <Text variant="headlineMedium" style={styles.timeValue}>{displayHour.toString().padStart(2, "0")}</Text>
           <IconButton icon="chevron-down" size={20} onPress={() => adjustHour(-1)} />
         </View>
         <Text variant="headlineMedium" style={{ marginHorizontal: 4 }}>:</Text>
@@ -148,7 +152,9 @@ function TimePicker({ label, value, onChange, theme }: { label: string, value: s
           <Text variant="headlineMedium" style={styles.timeValue}>{minute.toString().padStart(2, "0")}</Text>
           <IconButton icon="chevron-down" size={20} onPress={() => adjustMinute(-15)} />
         </View>
-        <Text variant="bodyLarge" style={{ marginLeft: 8, opacity: 0.6 }}>{hour >= 12 ? "PM" : "AM"}</Text>
+        {!use24HourFormat && (
+          <Text variant="bodyLarge" style={{ marginLeft: 8, opacity: 0.6 }}>{ampm}</Text>
+        )}
       </View>
     </View>
   );
@@ -439,11 +445,11 @@ export function CourseListScreen() {
             <View style={styles.section}>
               <Text variant="labelLarge" style={[styles.sectionTitle, { color: theme.colors.primary }]}>Time</Text>
               <View style={styles.timeRow}>
-                <TimePicker label="Start Time" value={startTime} onChange={setStartTime} theme={theme} />
+                <TimePicker label="Start Time" value={startTime} onChange={setStartTime} theme={theme} use24HourFormat={use24HourFormat} />
                 <View style={styles.timeDivider}>
                   <Text variant="titleLarge" style={{ opacity: 0.3 }}>→</Text>
                 </View>
-                <TimePicker label="End Time" value={endTime} onChange={setEndTime} theme={theme} />
+                <TimePicker label="End Time" value={endTime} onChange={setEndTime} theme={theme} use24HourFormat={use24HourFormat} />
               </View>
             </View>
 

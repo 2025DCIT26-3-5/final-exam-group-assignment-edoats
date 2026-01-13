@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeStore } from "../store/useThemeStore";
 import { useUserStore } from "../store/useUserStore";
 import { useScheduleStore } from "../store/useScheduleStore";
+import { useSettingsStore } from "../store/useSettingsStore";
 import { ExportModal } from "../components/ExportModal";
 
 export function SettingsScreen() {
@@ -17,10 +18,13 @@ export function SettingsScreen() {
   const { isDarkMode, toggleTheme, use24HourFormat, toggleTimeFormat } = useThemeStore();
   const { name, setName } = useUserStore();
   const { blocks, importSchedule } = useScheduleStore();
+  const { notificationsEnabled, reminderMinutes, setNotificationsEnabled, setReminderMinutes } = useSettingsStore();
 
   const [nameDialogVisible, setNameDialogVisible] = useState(false);
+  const [reminderDialogVisible, setReminderDialogVisible] = useState(false);
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [newName, setNewName] = useState(name);
+  const [tempReminderMinutes, setTempReminderMinutes] = useState(reminderMinutes.toString());
 
   const handleExportJSON = async () => {
     try {
@@ -107,6 +111,14 @@ export function SettingsScreen() {
     setNameDialogVisible(false);
   };
 
+  const saveReminderMinutes = () => {
+    const minutes = parseInt(tempReminderMinutes);
+    if (!isNaN(minutes) && minutes > 0) {
+      setReminderMinutes(minutes);
+    }
+    setReminderDialogVisible(false);
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
       <Text variant="headlineMedium" style={[styles.header, { fontFamily: 'serif', color: theme.colors.primary }]}>Settings</Text>
@@ -136,6 +148,20 @@ export function SettingsScreen() {
         <Divider />
 
         <List.Subheader>Data</List.Subheader>
+        <List.Item
+          title="Notifications"
+          description={notificationsEnabled ? `Alert ${reminderMinutes} min before class` : "Disabled"}
+          left={() => <List.Icon icon="bell" />}
+          right={() => <Switch value={notificationsEnabled} onValueChange={setNotificationsEnabled} />}
+          onPress={() => {
+            if (notificationsEnabled) {
+              setTempReminderMinutes(reminderMinutes.toString());
+              setReminderDialogVisible(true);
+            }
+          }}
+        />
+        <Divider />
+
         <List.Item
           title="Export as Image"
           description="Save as PNG with custom resolution"
@@ -176,6 +202,26 @@ export function SettingsScreen() {
           <Dialog.Actions>
             <Button onPress={() => setNameDialogVisible(false)}>Cancel</Button>
             <Button onPress={saveName}>Save</Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        <Dialog visible={reminderDialogVisible} onDismiss={() => setReminderDialogVisible(false)}>
+          <Dialog.Title>Reminder Time</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={{ marginBottom: 16 }}>
+              Notify me this many minutes before class starts:
+            </Text>
+            <TextInput
+              label="Minutes"
+              value={tempReminderMinutes}
+              onChangeText={setTempReminderMinutes}
+              keyboardType="numeric"
+              mode="outlined"
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setReminderDialogVisible(false)}>Cancel</Button>
+            <Button onPress={saveReminderMinutes}>Save</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>

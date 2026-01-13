@@ -8,6 +8,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlockDetailModal } from "../components/BlockDetailModal";
 import * as Haptics from "expo-haptics";
+import { registerForPushNotificationsAsync } from "../utils/notifications";
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 7); // 7 AM to 6 PM
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -94,7 +95,7 @@ const DraggableBlock = React.memo(({
     >
       <Text numberOfLines={1} style={styles.blockCode}>{block.code}</Text>
       <Text numberOfLines={1} style={styles.blockName}>{block.instructor || block.name}</Text>
-      {block.note && <Text numberOfLines={1} style={styles.blockNote}>{block.note}</Text>}
+      {block.note && <Text style={styles.blockNote}>{block.note}</Text>}
     </TouchableOpacity>
   );
 });
@@ -127,6 +128,8 @@ function UpNextWidget({ blocks, use24HourFormat }: { blocks: CourseBlock[], use2
   const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
+    registerForPushNotificationsAsync();
+
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
@@ -206,7 +209,14 @@ export function DashboardScreen() {
   const [modalVisible, setModalVisible] = useState(false);
 
   // Drag State
-  const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
+  const [draggingBlockId, setDraggingBlockIdState] = useState<string | null>(null);
+  const draggingBlockIdRef = useRef<string | null>(null); // Ref to avoid stale closure in PanResponder
+
+  const setDraggingBlockId = (id: string | null) => {
+    setDraggingBlockIdState(id);
+    draggingBlockIdRef.current = id;
+  };
+
   const [ghostStyle, setGhostStyle] = useState<any>(null);
   const pan = useRef(new Animated.ValueXY()).current;
   const gridLayout = useRef<{ x: number, y: number, width: number, height: number } | null>(null);
@@ -216,8 +226,8 @@ export function DashboardScreen() {
   // Drag PanResponder
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => !!draggingBlockId,
-      onMoveShouldSetPanResponder: () => !!draggingBlockId,
+      onStartShouldSetPanResponder: () => !!draggingBlockIdRef.current,
+      onMoveShouldSetPanResponder: () => !!draggingBlockIdRef.current,
       onPanResponderGrant: () => {
         pan.setOffset({
           // @ts-ignore
@@ -227,11 +237,14 @@ export function DashboardScreen() {
         });
       },
       onPanResponderMove: (e, gesture) => {
+        // Only run if we are actually dragging something
+        if (!draggingBlockIdRef.current) return;
+
         // Update pan value
         pan.setValue({ x: gesture.dx, y: gesture.dy });
 
         // Calculate ghost position
-        if (gridLayout.current && draggingBlockId) {
+        if (gridLayout.current && draggingBlockIdRef.current) {
           // Absolute touch position relative to grid
           // We need to account for ScrollView offset but we can't easily access current scroll offset synchronously in RN without native driver.
           // Simplified: Assume grid is visible. 
@@ -253,29 +266,25 @@ export function DashboardScreen() {
         }
       },
       onPanResponderRelease: (e, gesture) => {
-        if (!draggingBlockId) return;
+        const draggingId = draggingBlockIdRef.current;
+        if (!draggingId) return;
 
         // Finalize drop
-        // Logic:
-        // 1. Get initial block
-        const block = blocks.find(b => b.id === draggingBlockId);
+        const block = blocks.find(b => b.id === draggingId);
         if (block) {
           const initialStyle = getBlockStyle(block);
           if (initialStyle) {
             const newLeft = initialStyle.left + gesture.dx;
             const newTop = initialStyle.top + gesture.dy;
 
-            // Snap logic
             const dayIndex = Math.round(newLeft / COL_WIDTH);
             const timeIndex = Math.round(newTop / ROW_HEIGHT);
 
-            // Validate bounds
             if (dayIndex >= 0 && dayIndex < 6 && timeIndex >= 0 && timeIndex < 12) {
               const newDay = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][dayIndex];
               const newStartHour = 7 + timeIndex;
               const newStartTime = `${newStartHour.toString().padStart(2, '0')}:00`;
 
-              // Execute Move
               moveBlock(block.id, newDay, newStartTime);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             } else {
@@ -287,7 +296,7 @@ export function DashboardScreen() {
         setDraggingBlockId(null);
         setGhostStyle(null);
         setScrollEnabled(true);
-        pan.setValue({ x: 0, y: 0 }); // Reset for next time (critical!)
+        pan.setValue({ x: 0, y: 0 });
       }
     })
   ).current;
@@ -383,7 +392,7 @@ export function DashboardScreen() {
 
       {/* DRAG LAYER - Overlay when dragging */}
       {draggingBlockId && (
-        <View style={StyleSheet.absoluteFill} zIndex={100} {...panResponder.panHandlers}>
+        <View style={[StyleSheet.absoluteFill, { zIndex: 100 }]} {...panResponder.panHandlers}>
           {/* We can put the Follower Block here if we want it to float above everything else */}
         </View>
       )}

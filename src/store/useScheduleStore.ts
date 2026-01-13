@@ -2,6 +2,9 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { scheduleWeeklyClassNotification, cancelNotification } from "../utils/notifications";
+import { useSettingsStore } from "./useSettingsStore";
+
 export interface CourseBlock {
   id: string;
   code: string; // e.g., "IT 101"
@@ -62,17 +65,37 @@ export const useScheduleStore = create<ScheduleState>()(
         return newColor;
       },
 
-      addBlock: (block) => set((state) => ({ blocks: [...state.blocks, block] })),
+      addBlock: (block) => {
+        set((state) => ({ blocks: [...state.blocks, block] }));
+        const { notificationsEnabled, reminderMinutes } = useSettingsStore.getState();
+        if (notificationsEnabled) {
+          scheduleWeeklyClassNotification(block.id, block.code, block.name, block.day, block.startTime, reminderMinutes);
+        }
+      },
 
-      updateBlock: (id, updatedBlock) =>
-        set((state) => ({
-          blocks: state.blocks.map((b) => (b.id === id ? { ...b, ...updatedBlock } : b)),
-        })),
+      updateBlock: (id, updatedBlock) => {
+        set((state) => {
+          const oldBlock = state.blocks.find(b => b.id === id);
+          const newBlocks = state.blocks.map((b) => (b.id === id ? { ...b, ...updatedBlock } : b));
+          const newBlock = newBlocks.find(b => b.id === id);
 
-      deleteBlock: (id) =>
+          if (oldBlock && newBlock) {
+            const { notificationsEnabled, reminderMinutes } = useSettingsStore.getState();
+            cancelNotification(id);
+            if (notificationsEnabled) {
+              scheduleWeeklyClassNotification(id, newBlock.code, newBlock.name, newBlock.day, newBlock.startTime, reminderMinutes);
+            }
+          }
+          return { blocks: newBlocks };
+        });
+      },
+
+      deleteBlock: (id) => {
         set((state) => ({
           blocks: state.blocks.filter((b) => b.id !== id),
-        })),
+        }));
+        cancelNotification(id);
+      },
 
       importSchedule: (newBlocks) => set({ blocks: newBlocks }),
 
@@ -110,6 +133,8 @@ export const useScheduleStore = create<ScheduleState>()(
             return overlap;
           });
 
+          const { notificationsEnabled, reminderMinutes } = useSettingsStore.getState();
+
           if (collisionBlockIndex !== -1) {
             // Determine logic: Swap? or shift? User asked for smart adjust or swap.
             // Simplest robust logic: SWAP positions.
@@ -143,6 +168,12 @@ export const useScheduleStore = create<ScheduleState>()(
               startTime: swappedStartTime, // Swap to old start time
               endTime: swappedEndTime
             };
+
+            // Reschedule swapped block notification
+            cancelNotification(collidingBlock.id);
+            if (notificationsEnabled) {
+              scheduleWeeklyClassNotification(collidingBlock.id, collidingBlock.code, collidingBlock.name, blocks[collisionBlockIndex].day, blocks[collisionBlockIndex].startTime, reminderMinutes);
+            }
           }
 
           // Move the dragged block
@@ -154,6 +185,12 @@ export const useScheduleStore = create<ScheduleState>()(
           };
 
           const updatedBlocks = blocks.map(b => b.id === id ? updatedBlock : b);
+
+          // Re-schedule moved block notification
+          cancelNotification(id);
+          if (notificationsEnabled) {
+            scheduleWeeklyClassNotification(id, updatedBlock.code, updatedBlock.name, updatedBlock.day, updatedBlock.startTime, reminderMinutes);
+          }
 
           return { blocks: updatedBlocks };
         });
