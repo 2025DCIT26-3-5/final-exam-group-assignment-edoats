@@ -51,8 +51,8 @@ export function ExportModal({ visible, onDismiss }: ExportModalProps) {
         textSecondary: isDarkExport ? "#888888" : "#666666",
         gridLine: isDarkExport ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
         brand: "#057b06",
-        blockText: "#FFFFFF", // Keep block text white as blocks are colored
-        blockSubtext: "rgba(255,255,255,0.8)",
+        blockText: isDarkExport ? "#FFFFFF" : "#000000",
+        blockSubtext: isDarkExport ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.7)",
     };
 
     // Calculate scale for preview
