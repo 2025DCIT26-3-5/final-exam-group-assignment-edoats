@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { View, StyleSheet, ScrollView, TouchableOpacity, Animated } from "react-native";
 import { Text, useTheme, Card } from "react-native-paper";
 import { useScheduleStore, CourseBlock } from "../store/useScheduleStore";
+import { useThemeStore, formatTime, formatTimeRange } from "../store/useThemeStore";
 import { useUserStore } from "../store/useUserStore";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -70,7 +71,7 @@ const ScheduleBlock = React.memo(({ block, style, onPress }: { block: CourseBloc
 });
 ScheduleBlock.displayName = "ScheduleBlock";
 
-function UpNextWidget({ blocks }: { blocks: CourseBlock[] }) {
+function UpNextWidget({ blocks, use24HourFormat }: { blocks: CourseBlock[], use24HourFormat: boolean }) {
   const theme = useTheme();
   const [now, setNow] = useState(new Date());
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -134,7 +135,7 @@ function UpNextWidget({ blocks }: { blocks: CourseBlock[] }) {
             <View>
               <Text variant="labelSmall" style={{ color: theme.colors.onPrimaryContainer, fontWeight: 'bold', textTransform: 'uppercase' }}>Happening Now</Text>
               <Text variant="titleMedium" style={{ color: theme.colors.onPrimaryContainer, fontWeight: 'bold' }}>{currentBlock.code}</Text>
-              <Text variant="bodySmall" style={{ color: theme.colors.onPrimaryContainer }}>{currentBlock.startTime} - {currentBlock.endTime} • {currentBlock.name}</Text>
+              <Text variant="bodySmall" style={{ color: theme.colors.onPrimaryContainer }}>{formatTimeRange(currentBlock.startTime, currentBlock.endTime, use24HourFormat)} • {currentBlock.name}</Text>
             </View>
           </Card.Content>
         </Card>
@@ -147,7 +148,7 @@ function UpNextWidget({ blocks }: { blocks: CourseBlock[] }) {
             <View>
               <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant, fontWeight: 'bold', textTransform: 'uppercase' }}>Up Next</Text>
               <Text variant="titleMedium" style={{ color: theme.colors.onSurfaceVariant, fontWeight: 'bold' }}>{nextBlock.code}</Text>
-              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Starts at {nextBlock.startTime}</Text>
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Starts at {formatTime(nextBlock.startTime, use24HourFormat)}</Text>
             </View>
           </Card.Content>
         </Card>
@@ -160,6 +161,7 @@ export function DashboardScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { blocks } = useScheduleStore();
+  const { use24HourFormat } = useThemeStore();
   const { name } = useUserStore();
   const headerFadeAnim = useRef(new Animated.Value(0)).current;
   const headerSlideAnim = useRef(new Animated.Value(20)).current;
@@ -212,6 +214,9 @@ export function DashboardScreen() {
     };
   };
 
+  // Calculate total credits
+  const totalCredits = blocks.reduce((sum, block) => sum + (block.creditUnits || 0), 0);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
       <Animated.View style={[styles.header, { opacity: headerFadeAnim, transform: [{ translateY: headerSlideAnim }] }]}>
@@ -219,11 +224,11 @@ export function DashboardScreen() {
           {name}&apos;s Schedule
         </Text>
         <Text variant="bodySmall" style={{ color: theme.colors.secondary }}>
-          {blocks.length} Classes Enrolled
+          {blocks.length} Classes • {totalCredits} Credit Units
         </Text>
       </Animated.View>
 
-      <UpNextWidget blocks={blocks} />
+      <UpNextWidget blocks={blocks} use24HourFormat={use24HourFormat} />
 
       <View style={styles.scheduleContainer}>
         {/* Horizontally and Vertically Scrollable Grid */}

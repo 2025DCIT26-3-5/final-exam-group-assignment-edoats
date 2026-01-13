@@ -14,7 +14,7 @@ import { ExportModal } from "../components/ExportModal";
 export function SettingsScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { isDarkMode, toggleTheme } = useThemeStore();
+  const { isDarkMode, toggleTheme, use24HourFormat, toggleTimeFormat } = useThemeStore();
   const { name, setName } = useUserStore();
   const { blocks, importSchedule } = useScheduleStore();
 
@@ -126,6 +126,12 @@ export function SettingsScreen() {
           title="Dark Mode"
           left={() => <List.Icon icon="theme-light-dark" />}
           right={() => <Switch value={isDarkMode} onValueChange={toggleTheme} />}
+        />
+        <List.Item
+          title="24-Hour Time Format"
+          description={use24HourFormat ? "14:00" : "2:00 PM"}
+          left={() => <List.Icon icon="clock-outline" />}
+          right={() => <Switch value={use24HourFormat} onValueChange={toggleTimeFormat} />}
         />
         <Divider />
 
