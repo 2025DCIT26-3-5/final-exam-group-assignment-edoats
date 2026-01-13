@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeStore } from "../store/useThemeStore";
 import { useUserStore } from "../store/useUserStore";
 import { useScheduleStore } from "../store/useScheduleStore";
+import { ExportModal } from "../components/ExportModal";
 
 export function SettingsScreen() {
   const theme = useTheme();
@@ -18,6 +19,7 @@ export function SettingsScreen() {
   const { blocks, importSchedule } = useScheduleStore();
 
   const [nameDialogVisible, setNameDialogVisible] = useState(false);
+  const [exportModalVisible, setExportModalVisible] = useState(false);
   const [newName, setNewName] = useState(name);
 
   const handleExportJSON = async () => {
@@ -129,6 +131,12 @@ export function SettingsScreen() {
 
         <List.Subheader>Data</List.Subheader>
         <List.Item
+          title="Export as Image"
+          description="Save as PNG with custom resolution"
+          left={() => <List.Icon icon="image" />}
+          onPress={() => setExportModalVisible(true)}
+        />
+        <List.Item
           title="Export as PDF"
           description="Generate a printable schedule"
           left={() => <List.Icon icon="file-pdf-box" />}
@@ -165,6 +173,12 @@ export function SettingsScreen() {
           </Dialog.Actions>
         </Dialog>
       </Portal>
+
+      {/* Export Modal */}
+      <ExportModal
+        visible={exportModalVisible}
+        onDismiss={() => setExportModalVisible(false)}
+      />
     </View>
   );
 }

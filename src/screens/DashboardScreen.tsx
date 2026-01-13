@@ -5,6 +5,7 @@ import { useScheduleStore, CourseBlock } from "../store/useScheduleStore";
 import { useUserStore } from "../store/useUserStore";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BlockDetailModal } from "../components/BlockDetailModal";
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 7); // 7 AM to 6 PM
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -14,7 +15,7 @@ const COL_WIDTH = 90;
 const TIME_COL_WIDTH = 50;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ScheduleBlock = React.memo(({ block, style }: { block: CourseBlock, style: any }) => {
+const ScheduleBlock = React.memo(({ block, style, onPress }: { block: CourseBlock, style: any, onPress: () => void }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -44,6 +45,7 @@ const ScheduleBlock = React.memo(({ block, style }: { block: CourseBlock, style:
           }
         ]}
         activeOpacity={0.7}
+        onPress={onPress}
       >
         <Text
           numberOfLines={1}
@@ -161,6 +163,15 @@ export function DashboardScreen() {
   const { name } = useUserStore();
   const headerFadeAnim = useRef(new Animated.Value(0)).current;
   const headerSlideAnim = useRef(new Animated.Value(20)).current;
+
+  // Modal state
+  const [selectedBlock, setSelectedBlock] = useState<CourseBlock | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const openBlockDetail = (block: CourseBlock) => {
+    setSelectedBlock(block);
+    setModalVisible(true);
+  };
 
   useEffect(() => {
     Animated.parallel([
@@ -280,7 +291,12 @@ export function DashboardScreen() {
                     const style = getBlockStyle(block);
                     if (!style) return null;
                     return (
-                      <ScheduleBlock key={block.id} block={block} style={style} />
+                      <ScheduleBlock
+                        key={block.id}
+                        block={block}
+                        style={style}
+                        onPress={() => openBlockDetail(block)}
+                      />
                     );
                   })}
                 </View>
@@ -289,6 +305,13 @@ export function DashboardScreen() {
           </View>
         </ScrollView>
       </View>
+
+      {/* Block Detail Modal */}
+      <BlockDetailModal
+        visible={modalVisible}
+        block={selectedBlock}
+        onDismiss={() => setModalVisible(false)}
+      />
     </View>
   );
 }
