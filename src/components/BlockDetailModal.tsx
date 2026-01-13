@@ -160,7 +160,7 @@ export function BlockDetailModal({ visible, block, onDismiss }: BlockDetailModal
                         </View>
                         <IconButton
                             icon={isEditing ? "close" : "pencil"}
-                            mode={isEditing ? "contained" : "default"}
+                            mode={isEditing ? "contained" : undefined}
                             onPress={() => setIsEditing(!isEditing)}
                             style={{ marginLeft: 8 }}
                         />
@@ -258,8 +258,8 @@ export function BlockDetailModal({ visible, block, onDismiss }: BlockDetailModal
                                 <Button
                                     mode="outlined"
                                     onPress={handleDelete}
-                                    style={styles.actionButton}
-                                    textColor={theme.colors.error}
+                                    style={[styles.actionButton, { borderColor: theme.colors.outline }]}
+                                    textColor={theme.colors.onSurface}
                                     contentStyle={{ height: 48 }}
                                 >
                                     Delete
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
         overflow: "hidden",
         maxHeight: "85%",
         padding: 0,
-        paddingBottom: 24,
+        backgroundColor: 'white',
     },
     headerStrip: {
         height: 6,
