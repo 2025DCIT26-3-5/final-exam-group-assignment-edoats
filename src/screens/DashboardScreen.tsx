@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { View, StyleSheet, ScrollView, TouchableOpacity, Animated } from "react-native";
 import { Text, useTheme, Card } from "react-native-paper";
 import { useScheduleStore, CourseBlock } from "../store/useScheduleStore";
 import { useUserStore } from "../store/useUserStore";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 7); // 7 AM to 8 PM
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -14,28 +13,59 @@ const COL_WIDTH = 100;
 const TIME_COL_WIDTH = 60;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ScheduleBlock = React.memo(({ block, style }: { block: CourseBlock, style: any }) => (
-  <Animated.View entering={FadeIn.duration(500)} style={style}>
-    <TouchableOpacity style={{ flex: 1 }}>
+const ScheduleBlock = React.memo(({ block, style }: { block: CourseBlock, style: any }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
+
+  return (
+    <Animated.View style={[style, { opacity: fadeAnim }]}>
+      <TouchableOpacity style={{ flex: 1 }}>
         <Text numberOfLines={1} variant="labelSmall" style={{ color: "#FFF", fontWeight: "bold" }}>
-        {block.code}
+          {block.code}
         </Text>
         <Text numberOfLines={1} variant="labelSmall" style={{ color: "rgba(255,255,255,0.8)", fontSize: 8 }}>
-        {block.name}
+          {block.name}
         </Text>
-    </TouchableOpacity>
-  </Animated.View>
-));
+      </TouchableOpacity>
+    </Animated.View>
+  );
+});
 ScheduleBlock.displayName = "ScheduleBlock";
 
 function UpNextWidget({ blocks }: { blocks: CourseBlock[] }) {
   const theme = useTheme();
   const [now, setNow] = useState(new Date());
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000); // Update every minute
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        delay: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        delay: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
 
   const currentDay = FULL_DAYS[now.getDay()];
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -65,30 +95,30 @@ function UpNextWidget({ blocks }: { blocks: CourseBlock[] }) {
   if (!currentBlock && !nextBlock) return null;
 
   return (
-    <Animated.View entering={FadeInDown.duration(600).delay(300)} style={styles.widgetContainer}>
+    <Animated.View style={[styles.widgetContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
       {currentBlock && (
         <Card style={[styles.widgetCard, { backgroundColor: theme.colors.primaryContainer }]}>
-            <Card.Content style={{flexDirection:'row', alignItems:'center'}}>
-                <MaterialCommunityIcons name="clock-check-outline" size={24} color={theme.colors.onPrimaryContainer} style={{marginRight:10}} />
-                <View>
-                    <Text variant="labelSmall" style={{color: theme.colors.onPrimaryContainer, fontWeight:'bold', textTransform:'uppercase'}}>Happening Now</Text>
-                    <Text variant="titleMedium" style={{color: theme.colors.onPrimaryContainer, fontWeight:'bold'}}>{currentBlock.code}</Text>
-                    <Text variant="bodySmall" style={{color: theme.colors.onPrimaryContainer}}>{currentBlock.startTime} - {currentBlock.endTime} • {currentBlock.name}</Text>
-                </View>
-            </Card.Content>
+          <Card.Content style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <MaterialCommunityIcons name="clock-check-outline" size={24} color={theme.colors.onPrimaryContainer} style={{ marginRight: 10 }} />
+            <View>
+              <Text variant="labelSmall" style={{ color: theme.colors.onPrimaryContainer, fontWeight: 'bold', textTransform: 'uppercase' }}>Happening Now</Text>
+              <Text variant="titleMedium" style={{ color: theme.colors.onPrimaryContainer, fontWeight: 'bold' }}>{currentBlock.code}</Text>
+              <Text variant="bodySmall" style={{ color: theme.colors.onPrimaryContainer }}>{currentBlock.startTime} - {currentBlock.endTime} • {currentBlock.name}</Text>
+            </View>
+          </Card.Content>
         </Card>
       )}
-      
+
       {nextBlock && (
-         <Card style={[styles.widgetCard, { backgroundColor: theme.colors.surfaceVariant, marginTop: currentBlock ? 8 : 0 }]}>
-            <Card.Content style={{flexDirection:'row', alignItems:'center'}}>
-                <MaterialCommunityIcons name="clock-start" size={24} color={theme.colors.onSurfaceVariant} style={{marginRight:10}} />
-                <View>
-                    <Text variant="labelSmall" style={{color: theme.colors.onSurfaceVariant, fontWeight:'bold', textTransform:'uppercase'}}>Up Next</Text>
-                    <Text variant="titleMedium" style={{color: theme.colors.onSurfaceVariant, fontWeight:'bold'}}>{nextBlock.code}</Text>
-                    <Text variant="bodySmall" style={{color: theme.colors.onSurfaceVariant}}>Starts at {nextBlock.startTime}</Text>
-                </View>
-            </Card.Content>
+        <Card style={[styles.widgetCard, { backgroundColor: theme.colors.surfaceVariant, marginTop: currentBlock ? 8 : 0 }]}>
+          <Card.Content style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <MaterialCommunityIcons name="clock-start" size={24} color={theme.colors.onSurfaceVariant} style={{ marginRight: 10 }} />
+            <View>
+              <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant, fontWeight: 'bold', textTransform: 'uppercase' }}>Up Next</Text>
+              <Text variant="titleMedium" style={{ color: theme.colors.onSurfaceVariant, fontWeight: 'bold' }}>{nextBlock.code}</Text>
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Starts at {nextBlock.startTime}</Text>
+            </View>
+          </Card.Content>
         </Card>
       )}
     </Animated.View>
@@ -99,6 +129,23 @@ export function DashboardScreen() {
   const theme = useTheme();
   const { blocks } = useScheduleStore();
   const { name } = useUserStore();
+  const headerFadeAnim = useRef(new Animated.Value(0)).current;
+  const headerSlideAnim = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(headerFadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(headerSlideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [headerFadeAnim, headerSlideAnim]);
 
   const getBlockStyle = (block: CourseBlock) => {
     const startHour = parseInt(block.startTime.split(":")[0]);
@@ -112,7 +159,7 @@ export function DashboardScreen() {
 
     // Map day string to index
     const dayIndex = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].indexOf(block.day);
-    
+
     // If day not found (e.g. Sunday), hide it or put it somewhere else
     if (dayIndex === -1) return null;
 
@@ -131,12 +178,12 @@ export function DashboardScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Animated.View entering={FadeInDown.duration(600)} style={styles.header}>
+      <Animated.View style={[styles.header, { opacity: headerFadeAnim, transform: [{ translateY: headerSlideAnim }] }]}>
         <Text variant="headlineSmall" style={{ fontFamily: "serif", color: theme.colors.primary }}>
           {name}&apos;s Schedule
         </Text>
         <Text variant="bodySmall" style={{ color: theme.colors.secondary }}>
-            {blocks.length} Classes Enrolled
+          {blocks.length} Classes Enrolled
         </Text>
       </Animated.View>
 
@@ -168,37 +215,37 @@ export function DashboardScreen() {
 
               {/* Grid Content */}
               <View style={{ width: DAYS.length * COL_WIDTH, height: HOURS.length * ROW_HEIGHT }}>
-                 {/* Horizontal Grid Lines */}
-                 {HOURS.map((h, i) => (
-                    <View key={`line-${h}`} style={{ 
-                        position: 'absolute', 
-                        top: i * ROW_HEIGHT, 
-                        width: '100%', 
-                        height: 1, 
-                        backgroundColor: theme.colors.outline, 
-                        opacity: 0.2 
-                    }} />
-                 ))}
-                 
-                 {/* Vertical Grid Lines */}
-                 {DAYS.map((d, i) => (
-                    <View key={`vline-${d}`} style={{ 
-                        position: 'absolute', 
-                        left: i * COL_WIDTH, 
-                        height: '100%', 
-                        width: 1, 
-                        backgroundColor: theme.colors.outline, 
-                        opacity: 0.2 
-                    }} />
-                 ))}
+                {/* Horizontal Grid Lines */}
+                {HOURS.map((h, i) => (
+                  <View key={`line-${h}`} style={{
+                    position: 'absolute',
+                    top: i * ROW_HEIGHT,
+                    width: '100%',
+                    height: 1,
+                    backgroundColor: theme.colors.outline,
+                    opacity: 0.2
+                  }} />
+                ))}
+
+                {/* Vertical Grid Lines */}
+                {DAYS.map((d, i) => (
+                  <View key={`vline-${d}`} style={{
+                    position: 'absolute',
+                    left: i * COL_WIDTH,
+                    height: '100%',
+                    width: 1,
+                    backgroundColor: theme.colors.outline,
+                    opacity: 0.2
+                  }} />
+                ))}
 
                 {/* Blocks */}
                 {blocks.map((block) => {
-                    const style = getBlockStyle(block);
-                    if (!style) return null;
-                    return (
-                        <ScheduleBlock key={block.id} block={block} style={style} />
-                    );
+                  const style = getBlockStyle(block);
+                  if (!style) return null;
+                  return (
+                    <ScheduleBlock key={block.id} block={block} style={style} />
+                  );
                 })}
               </View>
             </View>
