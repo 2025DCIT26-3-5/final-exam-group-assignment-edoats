@@ -74,7 +74,7 @@ const CourseCard = React.memo(({ item, onDelete, onEdit, theme, index, use24Hour
               onDelete(item.id);
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             }}
-            textColor={theme.colors.onSurfaceVariant}
+            textColor="#FFFFFF"
             compact
           >
             Delete
@@ -272,6 +272,14 @@ export function CourseListScreen() {
     setCode(course.code);
     setName(course.title);
     setSearchQuery("");
+    // Prepare form defaults for a new add
+    setInstructor("");
+    setNote("");
+    setDay(DAYS[0]);
+    setStartTime("08:00");
+    setEndTime("10:00");
+    setEditingBlock(null);
+    setVisible(true);
   };
 
   // Calculate total credits
@@ -319,14 +327,16 @@ export function CourseListScreen() {
         {filteredCatalog.length > 0 && (
           <View style={[styles.catalogResults, { backgroundColor: theme.colors.surfaceVariant }]}>
             <Text variant="labelSmall" style={{ opacity: 0.6, marginBottom: 8, paddingHorizontal: 12 }}>COURSE CATALOG</Text>
-            {filteredCatalog.map((course) => (
-              <CatalogCourseItem
-                key={course.code}
-                course={course}
-                onSelect={selectCatalogCourse}
-                theme={theme}
-              />
-            ))}
+            <ScrollView style={{ maxHeight: 240 }} keyboardShouldPersistTaps="handled">
+              {filteredCatalog.map((course) => (
+                <CatalogCourseItem
+                  key={course.code}
+                  course={course}
+                  onSelect={selectCatalogCourse}
+                  theme={theme}
+                />
+              ))}
+            </ScrollView>
           </View>
         )}
       </View>
@@ -494,7 +504,7 @@ const styles = StyleSheet.create({
   // Card styles
   card: { marginBottom: 14, borderRadius: 16, overflow: 'hidden' },
   cardAccent: { width: 4, height: '100%', position: 'absolute', left: 0, top: 0, bottom: 0 },
-  cardContent: { paddingLeft: 16 },
+  cardContent: { paddingLeft: 16, paddingTop: 16 }, // Added explicit paddingTop
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   cardFooter: { flexDirection: "row", marginTop: 14, gap: 10, flexWrap: 'wrap' },
 

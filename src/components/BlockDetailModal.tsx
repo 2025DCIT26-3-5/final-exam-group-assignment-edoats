@@ -1,7 +1,8 @@
-import React, { useState } from "react";
-import { View, StyleSheet, Alert, ScrollView, TouchableOpacity } from "react-native";
+import React, { useState, useRef } from "react";
+import { View, StyleSheet, Alert, ScrollView, TouchableOpacity, PanResponder, Animated } from "react-native";
 import { Modal, Portal, Text, Button, TextInput, useTheme, IconButton, Divider } from "react-native-paper";
 import { CourseBlock, useScheduleStore } from "../store/useScheduleStore";
+import { useThemeStore, formatTimeRange } from "../store/useThemeStore";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
@@ -17,18 +18,18 @@ const COLORS = [
     { name: "Purple", hex: "#7B5EA7" },
 ];
 
-function TimePicker({ label, value, onChange, theme }: { label: string, value: string, onChange: (time: string) => void, theme: any }) {
+function TimePicker({ label, value, onChange, theme, use24HourFormat }: { label: string, value: string, onChange: (time: string) => void, theme: any, use24HourFormat: boolean }) {
     const [hour, minute] = value.split(":").map(Number);
 
-    const formatTime = (h: number, m: number) => {
+    const formatTimeStr = (h: number, m: number) => {
         return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
     };
 
     const adjustHour = (delta: number) => {
         let newHour = hour + delta;
-        if (newHour < 7) newHour = 20;
-        if (newHour > 20) newHour = 7;
-        onChange(formatTime(newHour, minute));
+        if (newHour < 0) newHour = 23;
+        if (newHour > 23) newHour = 0;
+        onChange(formatTimeStr(newHour, minute));
         Haptics.selectionAsync();
     };
 
@@ -36,26 +37,66 @@ function TimePicker({ label, value, onChange, theme }: { label: string, value: s
         let newMinute = minute + delta;
         if (newMinute < 0) newMinute = 45;
         if (newMinute > 45) newMinute = 0;
-        onChange(formatTime(hour, newMinute));
+        onChange(formatTimeStr(hour, newMinute));
         Haptics.selectionAsync();
     };
+
+    // Pan Responders for "dragging" effect
+    const hourPan = useRef(PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onPanResponderGrant: () => { },
+        onPanResponderMove: (_, gestureState) => {
+            if (gestureState.dy < -10) { adjustHour(1); } // Drag up
+            else if (gestureState.dy > 10) { adjustHour(-1); } // Drag down
+        },
+        onPanResponderRelease: () => { }
+    })).current;
+
+    const minutePan = useRef(PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onPanResponderGrant: () => { },
+        onPanResponderMove: (_, gestureState) => {
+            if (gestureState.dy < -10) { adjustMinute(15); }
+            else if (gestureState.dy > 10) { adjustMinute(-15); }
+        },
+        onPanResponderRelease: () => { }
+    })).current;
+
+    // Display Logic
+    const displayHour = use24HourFormat ? hour : (hour % 12 || 12);
+    const ampm = hour >= 12 ? "PM" : "AM";
 
     return (
         <View style={styles.timePickerContainer}>
             <Text variant="labelMedium" style={{ color: theme.colors.secondary, marginBottom: 8 }}>{label}</Text>
             <View style={styles.timePicker}>
-                <View style={styles.timeUnit}>
-                    <IconButton icon="chevron-up" size={18} onPress={() => adjustHour(1)} />
-                    <Text variant="titleLarge" style={styles.timeValue}>{hour.toString().padStart(2, "0")}</Text>
-                    <IconButton icon="chevron-down" size={18} onPress={() => adjustHour(-1)} />
+                {/* Hour */}
+                <View style={styles.timeUnit} {...hourPan.panHandlers}>
+                    <TouchableOpacity onPress={() => adjustHour(1)} hitSlop={10}>
+                        <MaterialCommunityIcons name="chevron-up" size={24} color={theme.colors.primary} />
+                    </TouchableOpacity>
+                    <Text variant="headlineMedium" style={styles.timeValue}>{displayHour.toString().padStart(2, "0")}</Text>
+                    <TouchableOpacity onPress={() => adjustHour(-1)} hitSlop={10}>
+                        <MaterialCommunityIcons name="chevron-down" size={24} color={theme.colors.primary} />
+                    </TouchableOpacity>
                 </View>
-                <Text variant="titleLarge" style={{ marginHorizontal: 2 }}>:</Text>
-                <View style={styles.timeUnit}>
-                    <IconButton icon="chevron-up" size={18} onPress={() => adjustMinute(15)} />
-                    <Text variant="titleLarge" style={styles.timeValue}>{minute.toString().padStart(2, "0")}</Text>
-                    <IconButton icon="chevron-down" size={18} onPress={() => adjustMinute(-15)} />
+
+                <Text variant="headlineMedium" style={{ marginHorizontal: 4 }}>:</Text>
+
+                {/* Minute */}
+                <View style={styles.timeUnit} {...minutePan.panHandlers}>
+                    <TouchableOpacity onPress={() => adjustMinute(15)} hitSlop={10}>
+                        <MaterialCommunityIcons name="chevron-up" size={24} color={theme.colors.primary} />
+                    </TouchableOpacity>
+                    <Text variant="headlineMedium" style={styles.timeValue}>{minute.toString().padStart(2, "0")}</Text>
+                    <TouchableOpacity onPress={() => adjustMinute(-15)} hitSlop={10}>
+                        <MaterialCommunityIcons name="chevron-down" size={24} color={theme.colors.primary} />
+                    </TouchableOpacity>
                 </View>
-                <Text variant="bodyMedium" style={{ marginLeft: 6, opacity: 0.6 }}>{hour >= 12 ? "PM" : "AM"}</Text>
+
+                {!use24HourFormat && (
+                    <Text variant="titleMedium" style={{ marginLeft: 6, opacity: 0.6, fontWeight: 'bold' }}>{ampm}</Text>
+                )}
             </View>
         </View>
     );
@@ -70,9 +111,9 @@ interface BlockDetailModalProps {
 export function BlockDetailModal({ visible, block, onDismiss }: BlockDetailModalProps) {
     const theme = useTheme();
     const { updateBlock, deleteBlock } = useScheduleStore();
+    const { use24HourFormat } = useThemeStore();
     const [isEditing, setIsEditing] = useState(false);
 
-    // Edit form state
     const [code, setCode] = useState("");
     const [name, setName] = useState("");
     const [instructor, setInstructor] = useState("");
@@ -82,7 +123,6 @@ export function BlockDetailModal({ visible, block, onDismiss }: BlockDetailModal
     const [endTime, setEndTime] = useState("");
     const [color, setColor] = useState("");
 
-    // Initialize form
     React.useEffect(() => {
         if (block) {
             setCode(block.code);
@@ -188,8 +228,8 @@ export function BlockDetailModal({ visible, block, onDismiss }: BlockDetailModal
                                     ))}
                                 </ScrollView>
                                 <View style={styles.timeRow}>
-                                    <TimePicker label="Start" value={startTime} onChange={setStartTime} theme={theme} />
-                                    <TimePicker label="End" value={endTime} onChange={setEndTime} theme={theme} />
+                                    <TimePicker label="Start" value={startTime} onChange={setStartTime} theme={theme} use24HourFormat={use24HourFormat} />
+                                    <TimePicker label="End" value={endTime} onChange={setEndTime} theme={theme} use24HourFormat={use24HourFormat} />
                                 </View>
                             </View>
 
@@ -235,8 +275,8 @@ export function BlockDetailModal({ visible, block, onDismiss }: BlockDetailModal
                         </View>
                     ) : (
                         <View style={styles.detailsList}>
-                            {/* Detail Rows */}
-                            <DetailRow icon="calendar-clock" label="Schedule" value={`${block.day}, ${block.startTime} - ${block.endTime}`} theme={theme} />
+                            {/* Detail Rows - Format Time Range properly */}
+                            <DetailRow icon="calendar-clock" label="Schedule" value={`${block.day}, ${formatTimeRange(block.startTime, block.endTime, use24HourFormat)}`} theme={theme} />
 
                             {block.instructor && (
                                 <DetailRow icon="account-tie" label="Instructor" value={block.instructor} theme={theme} />
@@ -256,10 +296,10 @@ export function BlockDetailModal({ visible, block, onDismiss }: BlockDetailModal
                             {/* Action Buttons - Fixed Design */}
                             <View style={styles.actionButtonsContainer}>
                                 <Button
-                                    mode="outlined"
+                                    mode="contained"
                                     onPress={handleDelete}
-                                    style={[styles.actionButton, { borderColor: theme.colors.outline }]}
-                                    textColor={theme.colors.onSurface}
+                                    style={[styles.actionButton, { backgroundColor: theme.colors.error }]}
+                                    textColor="#FFFFFF"
                                     contentStyle={{ height: 48 }}
                                 >
                                     Delete
@@ -301,7 +341,6 @@ const styles = StyleSheet.create({
         borderRadius: 24,
         overflow: "hidden",
         maxHeight: "85%",
-        padding: 0,
         backgroundColor: 'white',
     },
     headerStrip: {
@@ -349,6 +388,7 @@ const styles = StyleSheet.create({
     editForm: {
         paddingHorizontal: 24,
         gap: 20,
+        paddingBottom: 24,
     },
     section: {
         gap: 8,
@@ -395,6 +435,7 @@ const styles = StyleSheet.create({
     },
     timeValue: {
         fontWeight: "bold",
-        fontSize: 18,
+        fontSize: 20,
+        marginVertical: 4,
     },
 });
