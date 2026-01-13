@@ -182,7 +182,7 @@ export function BlockDetailModal({ visible, block, onDismiss }: BlockDetailModal
                 {/* Header Strip */}
                 <View style={[styles.headerStrip, { backgroundColor: block.color }]} />
 
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
                     {/* Header */}
                     <View style={styles.header}>
                         <View style={{ flex: 1 }}>
@@ -315,6 +315,7 @@ export function BlockDetailModal({ visible, block, onDismiss }: BlockDetailModal
                             </View>
                         </View>
                     )}
+                    <View style={{ height: 20 }} />
                 </ScrollView>
             </Modal>
         </Portal>

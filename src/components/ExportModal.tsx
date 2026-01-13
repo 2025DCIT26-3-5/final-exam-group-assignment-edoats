@@ -1,11 +1,12 @@
 import React, { useState, useRef } from "react";
 import { View, StyleSheet, ScrollView, Dimensions } from "react-native";
-import { Modal, Portal, Text, Button, useTheme, SegmentedButtons, ActivityIndicator } from "react-native-paper";
+import { Modal, Portal, Text, Button, useTheme, SegmentedButtons, ActivityIndicator, TextInput, Divider } from "react-native-paper";
 import { useScheduleStore, CourseBlock } from "../store/useScheduleStore";
 import { useUserStore } from "../store/useUserStore";
 import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
-import * as FileSystem from "expo-file-system";
+// @ts-ignore
+import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 7);
@@ -37,8 +38,22 @@ export function ExportModal({ visible, onDismiss }: ExportModalProps) {
     const viewShotRef = useRef<ViewShot>(null);
     const [selectedRes, setSelectedRes] = useState("story");
     const [isExporting, setIsExporting] = useState(false);
+    const [exportTitle, setExportTitle] = useState(`${name}'s Schedule`);
+    const [exportTheme, setExportTheme] = useState<"light" | "dark">("dark");
 
     const currentRes = RESOLUTIONS.find((r) => r.value === selectedRes) || RESOLUTIONS[0];
+
+    // Export Theme Colors
+    const isDarkExport = exportTheme === "dark";
+    const exportColors = {
+        background: isDarkExport ? "#121212" : "#FFFFFF",
+        textPrimary: isDarkExport ? "#FFFFFF" : "#000000",
+        textSecondary: isDarkExport ? "#888888" : "#666666",
+        gridLine: isDarkExport ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+        brand: "#057b06",
+        blockText: "#FFFFFF", // Keep block text white as blocks are colored
+        blockSubtext: "rgba(255,255,255,0.8)",
+    };
 
     // Calculate scale for preview
     const screenWidth = Dimensions.get("window").width - 80;
@@ -94,7 +109,7 @@ export function ExportModal({ visible, onDismiss }: ExportModalProps) {
             const uri = await viewShotRef.current.capture?.();
             if (uri) {
                 const fileName = `schedule_${selectedRes}_${Date.now()}.png`;
-                const newUri = FileSystem.Paths.cache.uri + fileName;
+                const newUri = FileSystem.cacheDirectory + fileName;
                 await FileSystem.copyAsync({ from: uri, to: newUri });
                 await Sharing.shareAsync(newUri, { mimeType: "image/png" });
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -114,6 +129,27 @@ export function ExportModal({ visible, onDismiss }: ExportModalProps) {
                 contentContainerStyle={[styles.modal, { backgroundColor: theme.colors.surface }]}
             >
                 <Text variant="headlineSmall" style={styles.title}>Export Schedule</Text>
+
+                <View style={styles.controlsContainer}>
+                    <TextInput
+                        label="Title"
+                        value={exportTitle}
+                        onChangeText={setExportTitle}
+                        mode="outlined"
+                        dense
+                        style={{ marginBottom: 12, backgroundColor: theme.colors.surface }}
+                    />
+
+                    <SegmentedButtons
+                        value={exportTheme}
+                        onValueChange={(val) => setExportTheme(val as "light" | "dark")}
+                        buttons={[
+                            { value: "light", label: "Light", icon: "white-balance-sunny" },
+                            { value: "dark", label: "Dark", icon: "weather-night" },
+                        ]}
+                        style={{ marginBottom: 12 }}
+                    />
+                </View>
 
                 {/* Resolution Picker */}
                 <SegmentedButtons
@@ -139,24 +175,24 @@ export function ExportModal({ visible, onDismiss }: ExportModalProps) {
                         <ViewShot
                             ref={viewShotRef}
                             options={{ format: "png", quality: 1, width: currentRes.width, height: currentRes.height }}
-                            style={{ width: currentRes.width, height: currentRes.height, backgroundColor: "#121212" }}
+                            style={{ width: currentRes.width, height: currentRes.height, backgroundColor: exportColors.background }}
                         >
                             {/* Export Content */}
-                            <View style={{ flex: 1, padding: 20 }}>
+                            <View style={{ flex: 1, padding: 40 }}>
                                 {/* Header */}
-                                <Text style={{ color: "#057b06", fontSize: 32, fontWeight: "bold", marginBottom: 8 }}>
-                                    {name}&apos;s Schedule
+                                <Text style={{ color: exportColors.brand, fontSize: 48, fontWeight: "bold", marginBottom: 8, fontFamily: 'serif' }}>
+                                    {exportTitle}
                                 </Text>
-                                <Text style={{ color: "#888", fontSize: 18, marginBottom: 20 }}>
-                                    {blocks.length} Classes
+                                <Text style={{ color: exportColors.textSecondary, fontSize: 24, marginBottom: 32 }}>
+                                    {blocks.length} Classes • {blocks.reduce((acc, b) => acc + (b.creditUnits || 0), 0)} Units
                                 </Text>
 
                                 {/* Days Header */}
-                                <View style={{ flexDirection: "row", marginBottom: 10 }}>
+                                <View style={{ flexDirection: "row", marginBottom: 16 }}>
                                     <View style={{ width: TIME_COL_WIDTH }} />
                                     {DAYS.map((day) => (
                                         <View key={day} style={{ width: COL_WIDTH, alignItems: "center" }}>
-                                            <Text style={{ color: "#888", fontSize: 14, fontWeight: "500" }}>{day}</Text>
+                                            <Text style={{ color: exportColors.textSecondary, fontSize: 20, fontWeight: "500" }}>{day}</Text>
                                         </View>
                                     ))}
                                 </View>
@@ -166,12 +202,12 @@ export function ExportModal({ visible, onDismiss }: ExportModalProps) {
                                     {/* Time labels and lines */}
                                     {HOURS.map((hour, i) => (
                                         <View key={hour} style={{ position: "absolute", top: i * ROW_HEIGHT, left: 0, right: 0, flexDirection: "row" }}>
-                                            <View style={{ width: TIME_COL_WIDTH, alignItems: "flex-end", paddingRight: 10 }}>
-                                                <Text style={{ color: "#666", fontSize: 12 }}>
+                                            <View style={{ width: TIME_COL_WIDTH, alignItems: "flex-end", paddingRight: 16 }}>
+                                                <Text style={{ color: exportColors.textSecondary, fontSize: 16 }}>
                                                     {hour > 12 ? `${hour - 12}PM` : hour === 12 ? "12PM" : `${hour}AM`}
                                                 </Text>
                                             </View>
-                                            <View style={{ flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.1)" }} />
+                                            <View style={{ flex: 1, height: 1, backgroundColor: exportColors.gridLine, marginTop: 10 }} />
                                         </View>
                                     ))}
 
@@ -181,12 +217,17 @@ export function ExportModal({ visible, onDismiss }: ExportModalProps) {
                                         if (!style) return null;
                                         return (
                                             <View key={block.id} style={style}>
-                                                <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 14 }} numberOfLines={1}>
+                                                <Text style={{ color: exportColors.blockText, fontWeight: "bold", fontSize: 18, marginBottom: 4 }} numberOfLines={1}>
                                                     {block.code}
                                                 </Text>
-                                                <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 11 }} numberOfLines={1}>
-                                                    {block.instructor || block.name}
+                                                <Text style={{ color: exportColors.blockSubtext, fontSize: 14 }} numberOfLines={2}>
+                                                    {block.name}
                                                 </Text>
+                                                {block.instructor && (
+                                                    <Text style={{ color: exportColors.blockSubtext, fontSize: 12, marginTop: 2, fontStyle: 'italic' }} numberOfLines={1}>
+                                                        {block.instructor}
+                                                    </Text>
+                                                )}
                                             </View>
                                         );
                                     })}
@@ -246,5 +287,8 @@ const styles = StyleSheet.create({
     actions: {
         flexDirection: "row",
         marginTop: 16,
+    },
+    controlsContainer: {
+        marginBottom: 8,
     },
 });

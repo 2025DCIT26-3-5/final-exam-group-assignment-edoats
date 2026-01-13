@@ -41,7 +41,7 @@ function AppTabs() {
           if (route.name === "Schedule") {
             iconName = focused ? "calendar" : "calendar-outline";
           } else if (route.name === "Courses") {
-            iconName = focused ? "book-open-variant" : "book-open-variant";
+            iconName = focused ? "book-open-variant" : "book-open-page-variant-outline";
           } else if (route.name === "Settings") {
             iconName = focused ? "cog" : "cog-outline";
           }
@@ -52,7 +52,6 @@ function AppTabs() {
           fontSize: 12,
           fontFamily: 'sans-serif',
         },
-        animation: 'shift',
       })}
     >
       <Tab.Screen
@@ -76,7 +75,7 @@ function AppTabs() {
           tabPress: () => Haptics.selectionAsync(),
         }}
       />
-    </Tab.Navigator>
+    </Tab.Navigator >
   );
 }
 

@@ -45,7 +45,7 @@ export const CVSkedDarkTheme: MD3Theme = {
     onBackground: TEXT_PRIMARY,
     surfaceVariant: "#333333",
     onSurfaceVariant: TEXT_SECONDARY,
-    secondary: "#4a4a4a", // Muted for less emphasis
+    secondary: CVSU_GREEN, // User requested green for secondary
     tertiary: "#7d5260", // Muted pastel accent example
   },
   // Paper types might be strict about font config structure matches
@@ -57,6 +57,7 @@ export const CVSkedLightTheme: MD3Theme = {
   colors: {
     ...DefaultLightTheme.colors,
     primary: CVSU_GREEN,
+    secondary: CVSU_GREEN,
     background: "#F5F5F5",
     surface: "#FFFFFF",
   },

@@ -81,22 +81,37 @@ const DraggableBlock = React.memo(({
   // Actually, standard pattern is:
   // Render a separate "Dragging Layer" on top for the active block.
   // The items in the grid are just static Touchables with onLongPress.
+  const theme = useTheme();
+
+  const textStyle = { color: theme.dark ? '#FFFFFF' : '#000000' };
+  const subtextStyle = { color: theme.dark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)' };
+  const noteStyle = { color: theme.dark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)' };
+
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   return (
-    <TouchableOpacity
-      style={[styles.blockContainer, style, { backgroundColor: hexToRgba(block.color, 0.25), borderLeftColor: block.color }]}
-      activeOpacity={0.7}
-      onPress={onPress}
-      onLongPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        onDragStart(block.id);
-      }}
-      delayLongPress={300}
-    >
-      <Text numberOfLines={1} style={styles.blockCode}>{block.code}</Text>
-      <Text numberOfLines={1} style={styles.blockName}>{block.instructor || block.name}</Text>
-      {block.note && <Text style={styles.blockNote}>{block.note}</Text>}
-    </TouchableOpacity>
+    <Animated.View style={[style, { transform: [{ scale: scaleAnim }] }]}>
+      <TouchableOpacity
+        style={[styles.blockContainer, { width: '100%', height: '100%' }, { backgroundColor: hexToRgba(block.color, 0.25), borderLeftColor: block.color }]}
+        activeOpacity={0.7}
+        onPress={onPress}
+        onPressIn={() => {
+          Animated.spring(scaleAnim, { toValue: 0.95, useNativeDriver: true }).start();
+        }}
+        onPressOut={() => {
+          Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start();
+        }}
+        onLongPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          onDragStart(block.id);
+        }}
+        delayLongPress={200} // Slightly faster reaction
+      >
+        <Text numberOfLines={1} style={[styles.blockCode, textStyle]}>{block.code}</Text>
+        <Text numberOfLines={1} style={[styles.blockName, subtextStyle]}>{block.instructor || block.name}</Text>
+        {block.note && <Text style={[styles.blockNote, noteStyle]}>{block.note}</Text>}
+      </TouchableOpacity>
+    </Animated.View>
   );
 });
 DraggableBlock.displayName = "DraggableBlock";
@@ -182,11 +197,11 @@ function UpNextWidget({ blocks, use24HourFormat }: { blocks: CourseBlock[], use2
       {nextBlock && (
         <Card style={[styles.widgetCard, { backgroundColor: theme.colors.surfaceVariant, marginTop: currentBlock ? 8 : 0 }]}>
           <Card.Content style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <MaterialCommunityIcons name="clock-start" size={24} color={theme.colors.onSurfaceVariant} style={{ marginRight: 10 }} />
+            <MaterialCommunityIcons name="clock-start" size={24} color={theme.colors.secondary} style={{ marginRight: 10 }} />
             <View>
               <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant, fontWeight: 'bold', textTransform: 'uppercase' }}>Up Next</Text>
               <Text variant="titleMedium" style={{ color: theme.colors.onSurfaceVariant, fontWeight: 'bold' }}>{nextBlock.code}</Text>
-              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Starts at {formatTime(nextBlock.startTime, use24HourFormat)}</Text>
+              <Text variant="bodySmall" style={{ color: theme.colors.secondary, fontWeight: 'bold' }}>Starts at {formatTime(nextBlock.startTime, use24HourFormat)}</Text>
             </View>
           </Card.Content>
         </Card>
@@ -229,40 +244,51 @@ export function DashboardScreen() {
       onStartShouldSetPanResponder: () => !!draggingBlockIdRef.current,
       onMoveShouldSetPanResponder: () => !!draggingBlockIdRef.current,
       onPanResponderGrant: () => {
-        pan.setOffset({
-          // @ts-ignore
-          x: pan.x._value,
-          // @ts-ignore
-          y: pan.y._value
-        });
+        pan.setOffset({ x: 0, y: 0 });
+        pan.setValue({ x: 0, y: 0 });
       },
       onPanResponderMove: (e, gesture) => {
         // Only run if we are actually dragging something
-        if (!draggingBlockIdRef.current) return;
+        const draggingId = draggingBlockIdRef.current;
+        if (!draggingId) return;
 
         // Update pan value
         pan.setValue({ x: gesture.dx, y: gesture.dy });
 
-        // Calculate ghost position
-        if (gridLayout.current && draggingBlockIdRef.current) {
-          // Absolute touch position relative to grid
-          // We need to account for ScrollView offset but we can't easily access current scroll offset synchronously in RN without native driver.
-          // Simplified: Assume grid is visible. 
-          // Re-calculation:
-          // gesture.moveX/moveY are absolute. 
-          // We need coords relative to the grid container
+        // Optimize: Calculate snap index BUT only update state if changed.
+        // FIX: Use getState() to get fresh blocks, as 'blocks' in closure is stale
+        const currentBlocks = useScheduleStore.getState().blocks;
+        const block = currentBlocks.find(b => b.id === draggingId);
 
-          // NOTE: Implementing precise drop geometry in raw RN without Reanimated is tricky due to scroll offset.
-          // Strategy: Use moveX/moveY - gridLayout.pageX/pageY
-          // But we need pageX/pageY from layout measurement.
-          const rawX = gesture.moveX - (gridLayout.current.x || 0); // This assumes grid is at 0,0 relative to screen which is false
-          // Getting absolute page coordinates of grid is hard without onLayout providing it (it provides relative).
-          // Workaround: Use relative gestures (dx, dy) + initial block position?
+        if (block) {
+          const initialStyle = getBlockStyle(block);
+          if (initialStyle) {
+            const newLeft = initialStyle.left + gesture.dx;
+            const newTop = initialStyle.top + gesture.dy;
 
-          // Simpler approach:
-          // 1. When drag starts, record the initial block's position.
-          // 2. Add dx, dy to it.
-          // 3. Round to nearest COL_WIDTH/ROW_HEIGHT.
+            // Snap logic
+            const dayIndex = Math.round(newLeft / COL_WIDTH);
+            const timeIndex = Math.round(newTop / ROW_HEIGHT);
+
+            const isValid = dayIndex >= 0 && dayIndex < 6 && timeIndex >= 0 && timeIndex < 12;
+
+            const newStyle = {
+              left: dayIndex * COL_WIDTH,
+              top: timeIndex * ROW_HEIGHT,
+              width: initialStyle.width,
+              height: initialStyle.height,
+              position: 'absolute'
+            };
+
+            // Simple check to avoid excessive setState
+            setGhostStyle((prev: any) => {
+              // If position hasn't changed (rounded), don't update
+              if (prev && prev.left === newStyle.left && prev.top === newStyle.top && prev.isValid === isValid) {
+                return prev;
+              }
+              return { ...newStyle, isValid };
+            });
+          }
         }
       },
       onPanResponderRelease: (e, gesture) => {
@@ -270,7 +296,9 @@ export function DashboardScreen() {
         if (!draggingId) return;
 
         // Finalize drop
-        const block = blocks.find(b => b.id === draggingId);
+        const currentBlocks = useScheduleStore.getState().blocks;
+        const block = currentBlocks.find(b => b.id === draggingId);
+
         if (block) {
           const initialStyle = getBlockStyle(block);
           if (initialStyle) {
@@ -296,6 +324,7 @@ export function DashboardScreen() {
         setDraggingBlockId(null);
         setGhostStyle(null);
         setScrollEnabled(true);
+        pan.flattenOffset(); // Ensure offset is cleared
         pan.setValue({ x: 0, y: 0 });
       }
     })
